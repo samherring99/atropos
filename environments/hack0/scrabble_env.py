@@ -1,5 +1,5 @@
 # environments/scrabble_env.py (initial snippet)
-from atroposlib.envs.base import BaseEnv, BaseEnvConfig, Item, ScoredDataGroup
+from atroposlib.envs.base import BaseEnv, BaseEnvConfig, APIServerConfig, Item, ScoredDataGroup
 from pydantic import Field
 from typing import List, Tuple, Dict, Any, Optional
 import asyncio
@@ -28,8 +28,6 @@ class ScrabbleEnvConfig(BaseEnvConfig):
     rack_size: int = 7
     dictionary_path: str = "./data/scrabble_dictionary.txt" # You'll need a dictionary file
 
-# environments/scrabble_env.py (continued)
-from atroposlib.prompts.base import Request, Generation
 
 class ScrabbleEnv(BaseEnv):
     env_config_cls = ScrabbleEnvConfig # Register your custom config
@@ -103,7 +101,7 @@ class ScrabbleEnv(BaseEnv):
 
         # Construct a simple board string for the prompt
         board_str = "\n".join([" ".join(row) for row in item.board_state])
-        prompt = (
+        system_prompt = (
             "You are playing Scrabble. Here is the current board:\n"
             f"```\n{board_str}\n```\n"
             f"Your letters: {', '.join(item.player_rack)}\n"
@@ -111,6 +109,27 @@ class ScrabbleEnv(BaseEnv):
             "Respond in JSON format like this: `{\"word\": \"HELLO\", \"row\": 7, \"col\": 7, \"direction\": \"across\", \"thought\": \"<your reasoning>\"}`. "
             "Your response must be a valid JSON object only."
         )
+
+        chat_completions = await self.server.chat_completion(
+            messages=[{"role": "system", "content": system_prompt}, user_message],
+            n=self.config.group_size,
+            max_tokens=self.config.max_token_length,
+        )
+        to_score = list()
+        to_backlog = list()
+        for i, chat_completion in enumerate(chat_completions.choices):
+            messages = (
+                {"role": "system", "content": system_prompt},
+                user_message,
+                {"role": "assistant", "content": chat_completion.message.content},
+            )
+            to_score.append(
+                {
+                    "messages": messages,
+                    "gold_answer": gold_answer,
+                    "finish_reason": chat_completion.finish_reason,
+                }
+            )
 
         llm_request = Request(
             prompt=prompt,
