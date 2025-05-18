@@ -465,10 +465,11 @@ class ScrabbleEnv(BaseEnv):
         self, item: ScrabbleRow
     ) -> Tuple[ScoredDataGroup, list[Any]]: # Changed list[Item] to list[Any] to match type_definitions
         board_str = "\n".join([" ".join(row) for row in item["board_state"]])
+        letters = ', '.join(item["player_rack"])
         prompt = (
             "You are playing Scrabble. Here is the current board:\n"
             f"```\n{board_str}\n```\n"
-            f"Your letters: {', '.join(item["player_rack"])}\n"
+            f"Your letters: {letters}\n"
             "What word will you play? Provide the word, its starting row (0-14), column (0-14), "
             "and direction ('across' or 'down'). Respond in JSON format only.\n"
             "Your response must be a valid JSON object like: "
