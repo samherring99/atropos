@@ -49,13 +49,11 @@ class ScrabbleEnvConfig(BaseEnvConfig):
     board_size: int = 15
     rack_size: int = 7
     dictionary_path: str = "./data/scrabble_dictionary.txt"
-    letter_values: Dict[str, int] = Field(
-        default_factory=lambda: {
+    letter_values: Dict[str, int] =  {
             'A': 1, 'B': 3, 'C': 3, 'D': 2, 'E': 1, 'F': 4, 'G': 2, 'H': 4, 'I': 1,
             'J': 8, 'K': 5, 'L': 1, 'M': 3, 'N': 1, 'O': 1, 'P': 3, 'Q': 10, 'R': 1,
             'S': 1, 'T': 1, 'U': 1, 'V': 4, 'W': 4, 'X': 8, 'Y': 4, 'Z': 10, '_': 0
         }
-    )
 
 # --- ScrabbleEnv Class Definition ---
 class ScrabbleEnv(BaseEnv):
@@ -163,18 +161,18 @@ class ScrabbleEnv(BaseEnv):
         await super().wandb_log(wandb_metrics)
 
     async def setup(self):
-        self.log.info(f"Loading dictionary from: {self.config.dictionary_path}")
+        print(f"Loading dictionary from: {self.config.dictionary_path}")
         try:
             with open(self.config.dictionary_path, 'r', encoding='utf-8') as f:
                 for line in f:
                     self.dictionary.add(line.strip().upper())
-            self.log.info(f"Loaded {len(self.dictionary)} words into dictionary.")
+            print(f"Loaded {len(self.dictionary)} words into dictionary.")
         except FileNotFoundError:
-            self.log.error(f"Dictionary file not found at {self.config.dictionary_path}. Please create it.")
+            print(f"Dictionary file not found at {self.config.dictionary_path}. Please create it.")
             raise
 
         self._initialize_game()
-        self.log.info("Scrabble environment setup complete.")
+        print("Scrabble environment setup complete.")
 
     def save_checkpoint(self, step: int, data: Optional[Dict] = None):
         if data is None:
@@ -185,7 +183,7 @@ class ScrabbleEnv(BaseEnv):
         data["player_rack"] = self.player_rack
         data["letter_bag"] = self.letter_bag
         super().save_checkpoint(step, data)
-        self.log.info(f"Checkpoint saved at step {step}")
+        print(f"Checkpoint saved at step {step}")
 
     def load_checkpoint(self, data: Dict):
         self.current_turn = data.get("current_turn", 0)
@@ -193,7 +191,7 @@ class ScrabbleEnv(BaseEnv):
         self.board = data.get("board", [[' ' for _ in range(self.config.board_size)] for _ in range(self.config.board_size)])
         self.player_rack = data.get("player_rack", [])
         self.letter_bag = data.get("letter_bag", self._initialize_letter_bag())
-        self.log.info(f"Checkpoint loaded. Resuming from turn {self.current_turn}, score {self.total_player_score}")
+        print(f"Checkpoint loaded. Resuming from turn {self.current_turn}, score {self.total_player_score}")
 
     # --- Scrabble Game Logic Helpers ---
     def _initialize_letter_bag(self) -> List[str]:
@@ -206,7 +204,7 @@ class ScrabbleEnv(BaseEnv):
         for letter, count in letter_counts.items():
             letters.extend([letter] * count)
         random.shuffle(letters)
-        self.log.info(f"Initialized letter bag with {len(letters)} tiles.")
+        print(f"Initialized letter bag with {len(letters)} tiles.")
         return letters
 
     def _initialize_game(self):
@@ -215,8 +213,8 @@ class ScrabbleEnv(BaseEnv):
         self.player_rack = self._draw_letters(self.config.rack_size)
         self.current_turn = 1
         self.total_player_score = 0
-        self.log.info("New Scrabble game initialized.")
-        self.log.info(f"Initial Rack: {self.player_rack}")
+        print("New Scrabble game initialized.")
+        print(f"Initial Rack: {self.player_rack}")
 
     def _draw_letters(self, num_letters: int) -> List[str]:
         drawn = []
@@ -401,7 +399,7 @@ class ScrabbleEnv(BaseEnv):
         if len(used_rack_letters_for_scoring) == self.config.rack_size:
             total_move_score += 50
 
-        self.log.debug(f"Move '{word_upper}' at ({row},{col}) {direction}. Base: {current_word_score}, Perpendicular: {perpendicular_word_score}, Word Multiplier: {word_multiplier}, Bingo: {50 if len(used_rack_letters_for_scoring) == self.config.rack_size else 0}. Total: {total_move_score}")
+        print(f"Move '{word_upper}' at ({row},{col}) {direction}. Base: {current_word_score}, Perpendicular: {perpendicular_word_score}, Word Multiplier: {word_multiplier}, Bingo: {50 if len(used_rack_letters_for_scoring) == self.config.rack_size else 0}. Total: {total_move_score}")
 
         return total_move_score, is_valid, temp_board, reason_invalid
 
@@ -435,17 +433,17 @@ class ScrabbleEnv(BaseEnv):
             score, is_valid, _, reason = self._validate_and_score_move(
                 board_state, player_rack, move_data.word, move_data.row, move_data.col, move_data.direction
             )
-            self.log.debug(f"Eval move: {move_data.word}, Valid: {is_valid}, Score: {score}, Reason: {reason}")
+            print(f"Eval move: {move_data.word}, Valid: {is_valid}, Score: {score}, Reason: {reason}")
             return float(score if is_valid else 0.0)
         except (ValidationError, json.JSONDecodeError, IndexError) as e:
-            self.log.error(f"Eval LLM response parsing error: {e}. Raw response: {completion.choices[0].message.content if completion.choices else 'N/A'}")
+            print(f"Eval LLM response parsing error: {e}. Raw response: {completion.choices[0].message.content if completion.choices else 'N/A'}")
             return 0.0
 
     async def evaluate(self, *args, **kwargs):
         num_eval_games = 5 # Reduced for quicker testing
         eval_scores = []
 
-        self.log.info(f"Starting evaluation over {num_eval_games} simulated games.")
+        print(f"Starting evaluation over {num_eval_games} simulated games.")
 
         eval_tasks = []
         for _ in range(num_eval_games):
@@ -460,7 +458,7 @@ class ScrabbleEnv(BaseEnv):
 
         self.eval_metrics.append(("eval/avg_move_score", avg_score))
         self.eval_metrics.append(("eval/valid_move_rate", valid_rate))
-        self.log.info(f"Evaluation complete. Avg Score: {avg_score:.2f}, Valid Move Rate: {valid_rate:.2f}")
+        print(f"Evaluation complete. Avg Score: {avg_score:.2f}, Valid Move Rate: {valid_rate:.2f}")
 
     async def collect_trajectories(
         self, item: ScrabbleRow
@@ -547,7 +545,7 @@ class ScrabbleEnv(BaseEnv):
 
                 if is_valid_move:
                     valid_move_score = float(move_score)
-                    self.log.debug(f"Valid LLM move: {word} ({row},{col}) {direction}, Score: {move_score}")
+                    print(f"Valid LLM move: {word} ({row},{col}) {direction}, Score: {move_score}")
 
                     if move_score > best_score_in_group:
                         best_score_in_group = move_score
@@ -557,13 +555,13 @@ class ScrabbleEnv(BaseEnv):
                         )
                         best_move_applied = True
                 else:
-                    self.log.debug(f"Invalid LLM move: {word} ({row},{col}) {direction}, Reason: {move_reason}")
+                    print(f"Invalid LLM move: {word} ({row},{col}) {direction}, Reason: {move_reason}")
 
             except (ValidationError, json.JSONDecodeError) as e:
                 self.log.warning(f"Failed to parse LLM JSON for scoring: {e}. Raw: {llm_response_text[:100]}...")
                 move_reason = f"JSON parsing error: {e}"
             except Exception as e:
-                self.log.error(f"Unexpected error during move processing: {e}. Raw: {llm_response_text[:100]}...")
+                print(f"Unexpected error during move processing: {e}. Raw: {llm_response_text[:100]}...")
                 move_reason = f"Internal error: {e}"
 
             out_dict = tokenize_for_trainer(
@@ -573,7 +571,7 @@ class ScrabbleEnv(BaseEnv):
             masks = out_dict["masks"]
 
             if len([1 for i in masks if i != -100]) < 10:
-                self.log.debug("Skipping very short tokenized response.")
+                print("Skipping very short tokenized response.")
                 continue
 
             scores["tokens"].append(tokens)
@@ -604,13 +602,13 @@ class ScrabbleEnv(BaseEnv):
                     self.log.warning(f"'_get_used_letters' reported using '{used_char}' but not found on rack for removal. Logic error?")
             self.player_rack = temp_rack_for_update
             self.player_rack.extend(self._draw_letters(self.config.rack_size - len(self.player_rack)))
-            self.log.info(f"Turn {self.current_turn-1} complete. Best score: {best_score_in_group}. Total score: {self.total_player_score}.")
-            self.log.info(f"New Rack: {self.player_rack}")
+            print(f"Turn {self.current_turn-1} complete. Best score: {best_score_in_group}. Total score: {self.total_player_score}.")
+            print(f"New Rack: {self.player_rack}")
         else:
             self.current_turn += 1
             self.log.warning(f"Turn {self.current_turn-1} complete. No valid move found in group. Total score: {self.total_player_score}.")
             self.player_rack = self._draw_letters(self.config.rack_size)
-            self.log.info(f"Player exchanged rack due to no valid moves. New Rack: {self.player_rack}")
+            print(f"Player exchanged rack due to no valid moves. New Rack: {self.player_rack}")
 
         if all(s > 0 for s in scores["scores"]):
             token_lengths = [len(s_tokens) for s_tokens in scores["tokens"]]
@@ -629,7 +627,7 @@ class ScrabbleEnv(BaseEnv):
                     scores["scores"][idx] *= (1.0 - percentage_of_range)
 
         if len(scores["scores"]) > 1 and all(s == scores["scores"][0] for s in scores["scores"]):
-            self.log.debug("All scores in group are identical. Returning None.")
+            print("All scores in group are identical. Returning None.")
             return None
 
         if group_rewards:
@@ -639,7 +637,7 @@ class ScrabbleEnv(BaseEnv):
 
     async def get_next_item(self) -> ScrabbleRow:
         if not self.player_rack and not self.letter_bag:
-            self.log.info("Game over: No more letters to draw or play. Resetting game.")
+            print("Game over: No more letters to draw or play. Resetting game.")
             self._initialize_game()
 
         return ScrabbleRow(
