@@ -405,10 +405,11 @@ class ScrabbleEnv(BaseEnv):
 
     async def rollout_and_score_eval(self, board_state: List[List[str]], player_rack: List[str]) -> float:
         board_str = "\n".join([" ".join(row) for row in board_state])
+        letters = ', '.join(player_rack)
         prompt = (
             "You are playing Scrabble. Here is the current board:\n"
             f"```\n{board_str}\n```\n"
-            f"Your letters: {', '.join(player_rack)}\n"
+            f"Your letters: {letters}\n"
             "What word will you play? Provide the word, its starting row (0-14), column (0-14), "
             "and direction ('across' or 'down'). Respond in JSON format only.\n"
             "Your response must be a valid JSON object like: "
